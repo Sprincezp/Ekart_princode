@@ -1,0 +1,1206 @@
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VLOOKUP Pro - Advanced Data Matching Tool</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.sheetjs.com/xlsx-0.20.0/package/dist/xlsx.full.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=DM+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <style>
+        :root {
+            --bg: #060b09;
+            --bg2: #0a120f;
+            --card: #0f1a15;
+            --card2: #142420;
+            --border: #1a3028;
+            --border2: #234038;
+            --accent: #10b981;
+            --accent-l: #34d399;
+            --accent-d: #059669;
+            --glow: rgba(16,185,129,0.12);
+            --text: #e8f0eb;
+            --text2: #8fa899;
+            --muted: #5a7467;
+            --err: #ef4444;
+            --warn: #f59e0b;
+            --info: #06b6d4;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: 'DM Sans', sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+        h1,h2,h3,h4 { font-family: 'Space Grotesk', sans-serif; }
+        body::before {
+            content:''; position:fixed; inset:-50%; width:200%; height:200%;
+            background: radial-gradient(circle at 25% 15%, rgba(16,185,129,0.07) 0%, transparent 45%),
+                        radial-gradient(circle at 75% 85%, rgba(6,182,212,0.04) 0%, transparent 45%);
+            z-index:-1; animation: bgDrift 25s ease-in-out infinite alternate;
+        }
+        @keyframes bgDrift { 0%{transform:translate(0,0)} 100%{transform:translate(-3%,2%)} }
+
+        /* Scrollbar */
+        ::-webkit-scrollbar { width:6px; height:6px; }
+        ::-webkit-scrollbar-track { background:var(--bg2); }
+        ::-webkit-scrollbar-thumb { background:var(--border2); border-radius:3px; }
+        ::-webkit-scrollbar-thumb:hover { background:var(--muted); }
+
+        /* Step Indicator */
+        .step-bar { display:flex; align-items:center; justify-content:center; gap:0; padding:1.5rem 1rem; flex-wrap:wrap; }
+        .step-node {
+            display:flex; align-items:center; gap:0.5rem; padding:0.5rem 1rem;
+            border-radius:9999px; font-size:0.85rem; font-weight:500;
+            color:var(--muted); transition:all 0.4s; cursor:default; white-space:nowrap;
+        }
+        .step-node.active { color:var(--accent); background:var(--glow); }
+        .step-node.done { color:var(--accent-l); }
+        .step-node .num {
+            width:28px; height:28px; border-radius:50%; display:flex; align-items:center; justify-content:center;
+            font-size:0.75rem; font-weight:700; border:2px solid var(--border);
+            transition:all 0.4s;
+        }
+        .step-node.active .num { border-color:var(--accent); background:var(--accent); color:#000; }
+        .step-node.done .num { border-color:var(--accent-d); background:var(--accent-d); color:#fff; }
+        .step-line { width:40px; height:2px; background:var(--border); transition:background 0.4s; flex-shrink:0; }
+        .step-line.done { background:var(--accent-d); }
+
+        /* Cards */
+        .v-card {
+            background:var(--card); border:1px solid var(--border); border-radius:16px;
+            padding:1.5rem; transition:border-color 0.3s;
+        }
+        .v-card:hover { border-color:var(--border2); }
+
+        /* Drop Zone */
+        .dropzone {
+            border:2px dashed var(--border2); border-radius:16px; padding:2.5rem 1.5rem;
+            text-align:center; cursor:pointer; transition:all 0.3s;
+            background:linear-gradient(135deg, rgba(16,185,129,0.02), transparent);
+        }
+        .dropzone:hover, .dropzone.drag-over {
+            border-color:var(--accent); background:var(--glow);
+            transform:translateY(-2px);
+        }
+        .dropzone.drag-over { animation: dzPulse 1s ease infinite; }
+        @keyframes dzPulse { 0%,100%{box-shadow:0 0 0 0 rgba(16,185,129,0.3)} 50%{box-shadow:0 0 0 12px rgba(16,185,129,0)} }
+
+        /* File Info Card */
+        .file-info {
+            background:var(--card2); border:1px solid var(--border); border-radius:12px;
+            padding:1rem 1.25rem; animation:fadeUp 0.4s ease;
+        }
+        @keyframes fadeUp { from{opacity:0;transform:translateY(10px)} to{opacity:1;transform:translateY(0)} }
+
+        /* Form Controls */
+        .v-select, .v-input {
+            width:100%; padding:0.6rem 0.85rem; background:var(--bg2); border:1px solid var(--border);
+            border-radius:10px; color:var(--text); font-size:0.875rem; font-family:inherit;
+            transition:border-color 0.3s; outline:none;
+        }
+        .v-select:focus, .v-input:focus { border-color:var(--accent); }
+        .v-select option { background:var(--card); color:var(--text); }
+
+        /* Toggle */
+        .tog { position:relative; display:inline-block; width:46px; height:26px; flex-shrink:0; }
+        .tog input { opacity:0; width:0; height:0; position:absolute; }
+        .tog-track {
+            position:absolute; inset:0; background:var(--border); border-radius:13px;
+            cursor:pointer; transition:0.3s;
+        }
+        .tog-track::before {
+            content:''; position:absolute; width:20px; height:20px; border-radius:50%;
+            background:#fff; top:3px; left:3px; transition:0.3s;
+        }
+        .tog input:checked + .tog-track { background:var(--accent); }
+        .tog input:checked + .tog-track::before { transform:translateX(20px); }
+
+        /* Checkbox */
+        .v-check { display:flex; align-items:center; gap:0.5rem; cursor:pointer; font-size:0.85rem; padding:0.4rem 0.6rem; border-radius:8px; transition:background 0.2s; }
+        .v-check:hover { background:rgba(255,255,255,0.04); }
+        .v-check input[type="checkbox"] {
+            width:18px; height:18px; accent-color:var(--accent); cursor:pointer; flex-shrink:0;
+        }
+
+        /* Buttons */
+        .btn {
+            display:inline-flex; align-items:center; gap:0.5rem; padding:0.7rem 1.5rem;
+            border-radius:10px; font-size:0.9rem; font-weight:600; font-family:inherit;
+            border:none; cursor:pointer; transition:all 0.3s; text-decoration:none;
+        }
+        .btn-p { background:var(--accent); color:#000; }
+        .btn-p:hover { background:var(--accent-l); transform:translateY(-1px); box-shadow:0 4px 20px rgba(16,185,129,0.3); }
+        .btn-p:disabled { opacity:0.4; cursor:not-allowed; transform:none; box-shadow:none; }
+        .btn-s { background:var(--card2); color:var(--text); border:1px solid var(--border); }
+        .btn-s:hover { border-color:var(--border2); background:var(--border); }
+        .btn-dl { background:rgba(16,185,129,0.1); color:var(--accent-l); border:1px solid rgba(16,185,129,0.2); }
+        .btn-dl:hover { background:rgba(16,185,129,0.2); border-color:var(--accent); }
+
+        /* Stats */
+        .stat-card {
+            background:var(--card); border:1px solid var(--border); border-radius:14px;
+            padding:1.25rem; text-align:center; position:relative; overflow:hidden;
+        }
+        .stat-card::before {
+            content:''; position:absolute; top:0; left:0; right:0; height:3px;
+        }
+        .stat-card.s-total::before { background:var(--info); }
+        .stat-card.s-match::before { background:var(--accent); }
+        .stat-card.s-unmatch::before { background:var(--err); }
+        .stat-card.s-multi::before { background:var(--warn); }
+        .stat-val { font-family:'Space Grotesk'; font-size:1.75rem; font-weight:700; line-height:1.2; }
+        .stat-card.s-total .stat-val { color:var(--info); }
+        .stat-card.s-match .stat-val { color:var(--accent); }
+        .stat-card.s-unmatch .stat-val { color:var(--err); }
+        .stat-card.s-multi .stat-val { color:var(--warn); }
+        .stat-lbl { font-size:0.78rem; color:var(--muted); margin-top:0.25rem; }
+
+        /* Table */
+        .tbl-wrap { overflow:auto; max-height:60vh; border:1px solid var(--border); border-radius:12px; }
+        .tbl-wrap table { width:100%; border-collapse:collapse; font-size:0.8rem; white-space:nowrap; }
+        .tbl-wrap th {
+            background:var(--card2); color:var(--text2); font-weight:600; text-align:left;
+            padding:0.65rem 0.85rem; border-bottom:2px solid var(--border); position:sticky; top:0; z-index:2;
+        }
+        .tbl-wrap td { padding:0.55rem 0.85rem; border-bottom:1px solid var(--border); }
+        .tbl-wrap tr:nth-child(even) td { background:rgba(255,255,255,0.015); }
+        .tbl-wrap tr:hover td { background:rgba(16,185,129,0.04); }
+        .tbl-wrap .row-matched td { border-left:3px solid var(--accent); }
+        .tbl-wrap .row-unmatched td { border-left:3px solid var(--err); }
+        .tbl-wrap .row-multi td { border-left:3px solid var(--warn); }
+        .tbl-wrap .col-new { background:rgba(16,185,129,0.06) !important; }
+
+        /* Toast */
+        #toast-box { position:fixed; top:1rem; right:1rem; z-index:9999; display:flex; flex-direction:column; gap:0.5rem; }
+        .toast {
+            padding:0.75rem 1.25rem; border-radius:10px; font-size:0.85rem; font-weight:500;
+            display:flex; align-items:center; gap:0.5rem; min-width:260px;
+            animation:toastIn 0.4s ease; box-shadow:0 8px 30px rgba(0,0,0,0.4);
+        }
+        .toast.out { animation:toastOut 0.3s ease forwards; }
+        .toast.t-ok { background:#064e3b; color:#6ee7b7; border:1px solid #10b981; }
+        .toast.t-err { background:#450a0a; color:#fca5a5; border:1px solid #ef4444; }
+        .toast.t-warn { background:#451a03; color:#fcd34d; border:1px solid #f59e0b; }
+        .toast.t-info { background:#083344; color:#67e8f9; border:1px solid #06b6d4; }
+        @keyframes toastIn { from{opacity:0;transform:translateX(40px)} to{opacity:1;transform:translateX(0)} }
+        @keyframes toastOut { to{opacity:0;transform:translateX(40px)} }
+
+        /* Processing Modal */
+        .proc-overlay {
+            position:fixed; inset:0; background:rgba(0,0,0,0.7); backdrop-filter:blur(8px);
+            z-index:8000; display:flex; align-items:center; justify-content:center;
+            animation:fadeIn 0.3s ease;
+        }
+        @keyframes fadeIn { from{opacity:0} to{opacity:1} }
+        .proc-card {
+            background:var(--card); border:1px solid var(--border); border-radius:20px;
+            padding:2.5rem; text-align:center; min-width:320px;
+        }
+        .proc-spinner {
+            width:48px; height:48px; border:3px solid var(--border); border-top-color:var(--accent);
+            border-radius:50%; animation:spin 0.8s linear infinite; margin:0 auto 1.25rem;
+        }
+        @keyframes spin { to{transform:rotate(360deg)} }
+        .proc-step { font-size:0.85rem; color:var(--text2); margin:0.35rem 0; text-align:left; display:flex; align-items:center; gap:0.5rem; }
+        .proc-step .ico { width:16px; text-align:center; }
+        .proc-step.s-done .ico { color:var(--accent); }
+        .proc-step.s-active .ico { color:var(--accent); animation:pulse 1s infinite; }
+        .proc-step.s-wait .ico { color:var(--muted); }
+        @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
+        .proc-bar { width:100%; height:4px; background:var(--border); border-radius:2px; margin-top:1.25rem; overflow:hidden; }
+        .proc-bar-fill { height:100%; background:var(--accent); border-radius:2px; transition:width 0.5s ease; }
+
+        /* Settings Row */
+        .set-row {
+            display:flex; align-items:center; justify-content:space-between; gap:1rem;
+            padding:0.85rem 0; border-bottom:1px solid var(--border);
+        }
+        .set-row:last-child { border-bottom:none; }
+
+        /* Section transitions */
+        .step-sec { animation:fadeUp 0.4s ease; }
+        .step-sec.hide { display:none; }
+        .hide { display: none !important; }
+
+        /* Data Preview */
+        .preview-mini { max-height:180px; }
+        .preview-mini td, .preview-mini th { font-size:0.7rem; padding:0.3rem 0.5rem !important; }
+        .preview-mini td { max-width:120px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+
+        /* Filter Buttons */
+        .filter-btn.active { background:var(--accent) !important; color:#000 !important; border-color:var(--accent) !important; }
+
+        /* Responsive */
+        @media(max-width:640px) {
+            .step-line { width:16px; }
+            .step-node { padding:0.35rem 0.6rem; font-size:0.75rem; }
+            .step-node .num { width:24px; height:24px; font-size:0.7rem; }
+            .stat-val { font-size:1.35rem; }
+            .v-card { padding:1rem; }
+            .set-row { flex-direction:column; align-items:flex-start; gap:0.4rem; }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+        }
+    </style>
+</head>
+<body>
+    <!-- Toast Container -->
+    <div id="toast-box"></div>
+
+    <!-- Main App -->
+    <div class="max-w-5xl mx-auto px-4 pb-12">
+
+        <!-- Header -->
+        <header class="text-center pt-8 pb-2">
+            <div class="inline-flex items-center gap-3 mb-2">
+                <div style="width:42px;height:42px;background:var(--accent);border-radius:12px;display:flex;align-items:center;justify-content:center;">
+                    <i class="fas fa-bolt" style="color:#000;font-size:1.2rem;"></i>
+                </div>
+                <h1 style="font-size:1.8rem;font-weight:700;letter-spacing:-0.5px;">VLOOKUP <span style="color:var(--accent)">Pro</span></h1>
+            </div>
+            <p style="color:var(--muted);font-size:0.9rem;">Formula-free advanced data matching — upload, map, process, download</p>
+        </header>
+
+        <!-- Step Indicator -->
+        <nav class="step-bar" aria-label="Progress Steps">
+            <div class="step-node active" id="sn-1"><span class="num">1</span> Upload</div>
+            <div class="step-line" id="sl-1"></div>
+            <div class="step-node" id="sn-2"><span class="num">2</span> Mapping</div>
+            <div class="step-line" id="sl-2"></div>
+            <div class="step-node" id="sn-3"><span class="num">3</span> Settings</div>
+            <div class="step-line" id="sl-3"></div>
+            <div class="step-node" id="sn-4"><span class="num">4</span> Result</div>
+        </nav>
+
+        <!-- ==================== STEP 1: UPLOAD ==================== -->
+        <section id="sec-1" class="step-sec">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <!-- Source File -->
+                <div>
+                    <div class="flex items-center gap-2 mb-3">
+                        <span style="background:var(--accent);color:#000;width:24px;height:24px;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:0.7rem;font-weight:700;">S</span>
+                        <h3 style="font-size:1rem;font-weight:600;">Source File <span style="color:var(--muted);font-weight:400;font-size:0.8rem;">(Data lena hai)</span></h3>
+                    </div>
+                    <div id="dz-1" class="dropzone" role="button" tabindex="0" aria-label="Source file upload">
+                        <input type="file" accept=".xlsx,.xls,.csv" class="hidden" id="fi-1">
+                        <i class="fas fa-cloud-upload-alt" style="font-size:2.2rem;color:var(--muted);margin-bottom:0.75rem;display:block;"></i>
+                        <p style="font-weight:600;margin-bottom:0.25rem;">Drag & Drop ya Click karein</p>
+                        <p style="font-size:0.78rem;color:var(--muted);">.xlsx, .xls, .csv supported</p>
+                    </div>
+                    <div id="finfo-1" class="file-info mt-3 hide">
+                        <div class="flex items-center gap-3 mb-2">
+                            <i class="fas fa-file-excel" style="font-size:1.4rem;color:var(--accent);"></i>
+                            <div style="min-width:0;flex:1;">
+                                <p style="font-weight:600;font-size:0.9rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" id="fn-1"></p>
+                                <p style="font-size:0.75rem;color:var(--muted);" id="fs-1"></p>
+                            </div>
+                        </div>
+                        <div id="ss-wrap-1" class="hide mb-2">
+                            <label style="font-size:0.78rem;color:var(--text2);display:block;margin-bottom:0.25rem;">Sheet Select Karein:</label>
+                            <select id="ss-1" class="v-select" style="font-size:0.82rem;padding:0.4rem 0.6rem;"></select>
+                        </div>
+                        <div class="flex gap-4" style="font-size:0.8rem;color:var(--text2);">
+                            <span><i class="fas fa-table" style="color:var(--muted);margin-right:0.3rem;"></i><span id="fr-1">0</span> Rows</span>
+                            <span><i class="fas fa-columns" style="color:var(--muted);margin-right:0.3rem;"></i><span id="fc-1">0</span> Columns</span>
+                        </div>
+                        <button class="btn btn-s mt-3" style="font-size:0.78rem;padding:0.4rem 0.9rem;" onclick="resetFile(1)">
+                            <i class="fas fa-sync-alt"></i> File Badlein
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Target File -->
+                <div>
+                    <div class="flex items-center gap-2 mb-3">
+                        <span style="background:var(--info);color:#000;width:24px;height:24px;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:0.7rem;font-weight:700;">T</span>
+                        <h3 style="font-size:1rem;font-weight:600;">Target File <span style="color:var(--muted);font-weight:400;font-size:0.8rem;">(Data bharna hai)</span></h3>
+                    </div>
+                    <div id="dz-2" class="dropzone" role="button" tabindex="0" aria-label="Target file upload">
+                        <input type="file" accept=".xlsx,.xls,.csv" class="hidden" id="fi-2">
+                        <i class="fas fa-cloud-upload-alt" style="font-size:2.2rem;color:var(--muted);margin-bottom:0.75rem;display:block;"></i>
+                        <p style="font-weight:600;margin-bottom:0.25rem;">Drag & Drop ya Click karein</p>
+                        <p style="font-size:0.78rem;color:var(--muted);">.xlsx, .xls, .csv supported</p>
+                    </div>
+                    <div id="finfo-2" class="file-info mt-3 hide">
+                        <div class="flex items-center gap-3 mb-2">
+                            <i class="fas fa-file-excel" style="font-size:1.4rem;color:var(--info);"></i>
+                            <div style="min-width:0;flex:1;">
+                                <p style="font-weight:600;font-size:0.9rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" id="fn-2"></p>
+                                <p style="font-size:0.75rem;color:var(--muted);" id="fs-2"></p>
+                            </div>
+                        </div>
+                        <div id="ss-wrap-2" class="hide mb-2">
+                            <label style="font-size:0.78rem;color:var(--text2);display:block;margin-bottom:0.25rem;">Sheet Select Karein:</label>
+                            <select id="ss-2" class="v-select" style="font-size:0.82rem;padding:0.4rem 0.6rem;"></select>
+                        </div>
+                        <div class="flex gap-4" style="font-size:0.8rem;color:var(--text2);">
+                            <span><i class="fas fa-table" style="color:var(--muted);margin-right:0.3rem;"></i><span id="fr-2">0</span> Rows</span>
+                            <span><i class="fas fa-columns" style="color:var(--muted);margin-right:0.3rem;"></i><span id="fc-2">0</span> Columns</span>
+                        </div>
+                        <button class="btn btn-s mt-3" style="font-size:0.78rem;padding:0.4rem 0.9rem;" onclick="resetFile(2)">
+                            <i class="fas fa-sync-alt"></i> File Badlein
+                        </button>
+                    </div>
+                </div>
+            </div>
+            <div class="flex justify-end mt-8">
+                <button class="btn btn-p" id="btn-n1" disabled onclick="goStep(2)">Aage Badhein <i class="fas fa-arrow-right"></i></button>
+            </div>
+        </section>
+
+        <!-- ==================== STEP 2: MAPPING ==================== -->
+        <section id="sec-2" class="step-sec hide">
+            <div class="v-card mb-6">
+                <div class="flex items-center gap-2 mb-1">
+                    <i class="fas fa-link" style="color:var(--accent);"></i>
+                    <h3 style="font-size:1.05rem;font-weight:600;">Match Columns Select Karein</h3>
+                </div>
+                <p style="font-size:0.82rem;color:var(--muted);margin-bottom:1rem;">Dono files me kaunse column se match karna hai — yeh key column hoga</p>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label style="font-size:0.8rem;color:var(--text2);display:block;margin-bottom:0.3rem;">
+                            <i class="fas fa-file-alt" style="color:var(--accent);margin-right:0.25rem;"></i>Source Column
+                        </label>
+                        <select id="mc1" class="v-select"></select>
+                    </div>
+                    <div>
+                        <label style="font-size:0.8rem;color:var(--text2);display:block;margin-bottom:0.3rem;">
+                            <i class="fas fa-file-alt" style="color:var(--info);margin-right:0.25rem;"></i>Target Column
+                        </label>
+                        <select id="mc2" class="v-select"></select>
+                    </div>
+                </div>
+                <div id="auto-detect-msg" class="hide mt-3" style="font-size:0.78rem;color:var(--accent);background:var(--glow);padding:0.5rem 0.75rem;border-radius:8px;">
+                    <i class="fas fa-magic"></i> Same naam ke column auto-detect hue
+                </div>
+            </div>
+
+            <div class="v-card mb-6">
+                <div class="flex items-center justify-between mb-1">
+                    <div class="flex items-center gap-2">
+                        <i class="fas fa-columns" style="color:var(--accent);"></i>
+                        <h3 style="font-size:1.05rem;font-weight:600;">Data Columns Transfer Karein</h3>
+                    </div>
+                    <label class="v-check" style="font-size:0.8rem;color:var(--accent);">
+                        <input type="checkbox" id="sel-all" checked onchange="toggleAllCols(this.checked)">
+                        Sab Select
+                    </label>
+                </div>
+                <p style="font-size:0.82rem;color:var(--muted);margin-bottom:1rem;">Source se kaunse columns target me copy karne hain</p>
+                <div id="dcols" class="grid grid-cols-2 sm:grid-cols-3 gap-1"></div>
+            </div>
+
+            <div class="v-card">
+                <div class="flex items-center gap-2 mb-1">
+                    <i class="fas fa-tag" style="color:var(--accent);"></i>
+                    <h3 style="font-size:1.05rem;font-weight:600;">Column Naming</h3>
+                </div>
+                <p style="font-size:0.82rem;color:var(--muted);margin-bottom:1rem;">Agar target me same naam ka column hai toh kya karein</p>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                        <label style="font-size:0.8rem;color:var(--text2);display:block;margin-bottom:0.3rem;">Conflict Action</label>
+                        <select id="conflict-act" class="v-select">
+                            <option value="suffix">Suffix Add Karein</option>
+                            <option value="overwrite">Overwrite (Replace)</option>
+                            <option value="skip">Skip (Chhod dein)</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label style="font-size:0.8rem;color:var(--text2);display:block;margin-bottom:0.3rem;">Custom Suffix</label>
+                        <input type="text" id="col-suffix" class="v-input" placeholder="_new" value="_new">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Data Preview -->
+            <div class="v-card mt-6">
+                <div class="flex items-center gap-2 mb-3">
+                    <i class="fas fa-eye" style="color:var(--accent);"></i>
+                    <h3 style="font-size:1.05rem;font-weight:600;">Data Preview</h3>
+                    <span style="font-size:0.75rem;color:var(--muted);margin-left:0.25rem;">(First 5 rows)</span>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <p style="font-size:0.78rem;color:var(--accent);font-weight:600;margin-bottom:0.4rem;"><i class="fas fa-file-alt"></i> Source</p>
+                        <div class="tbl-wrap preview-mini" id="prev-1"><p style="color:var(--muted);font-size:0.78rem;padding:0.5rem;">File load karein</p></div>
+                    </div>
+                    <div>
+                        <p style="font-size:0.78rem;color:var(--info);font-weight:600;margin-bottom:0.4rem;"><i class="fas fa-file-alt"></i> Target</p>
+                        <div class="tbl-wrap preview-mini" id="prev-2"><p style="color:var(--muted);font-size:0.78rem;padding:0.5rem;">File load karein</p></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="flex justify-between mt-8">
+                <button class="btn btn-s" onclick="goStep(1)"><i class="fas fa-arrow-left"></i> Wapas</button>
+                <button class="btn btn-p" onclick="goStep(3)">Settings <i class="fas fa-arrow-right"></i></button>
+            </div>
+        </section>
+
+        <!-- ==================== STEP 3: SETTINGS ==================== -->
+        <section id="sec-3" class="step-sec hide">
+            <div class="v-card">
+                <div class="flex items-center gap-2 mb-1">
+                    <i class="fas fa-sliders-h" style="color:var(--accent);"></i>
+                    <h3 style="font-size:1.05rem;font-weight:600;">Advanced Settings</h3>
+                </div>
+                <p style="font-size:0.82rem;color:var(--muted);margin-bottom:0.5rem;">Yeh optional hain — default values zyada tar cases me kaam karti hain</p>
+
+                <div class="set-row">
+                    <div>
+                        <p style="font-weight:600;font-size:0.9rem;">Match Type</p>
+                        <p style="font-size:0.78rem;color:var(--muted);">Kaise match karna hai</p>
+                    </div>
+                    <select id="s-match-type" class="v-select" style="width:auto;min-width:160px;">
+                        <option value="exact">Exact Match</option>
+                        <option value="contains">Contains (Andar ho)</option>
+                        <option value="starts">Starts With (Shuru)</option>
+                        <option value="ends">Ends With (Khatam)</option>
+                    </select>
+                </div>
+
+                <div class="set-row">
+                    <div>
+                        <p style="font-weight:600;font-size:0.9rem;">Case Sensitive</p>
+                        <p style="font-size:0.78rem;color:var(--muted);">Bada/chhota letter farq kare</p>
+                    </div>
+                    <label class="tog"><input type="checkbox" id="s-case"><span class="tog-track"></span></label>
+                </div>
+
+                <div class="set-row">
+                    <div>
+                        <p style="font-weight:600;font-size:0.9rem;">Trim Whitespace</p>
+                        <p style="font-size:0.78rem;color:var(--muted);">Space hata ke match kare</p>
+                    </div>
+                    <label class="tog"><input type="checkbox" id="s-trim" checked><span class="tog-track"></span></label>
+                </div>
+
+                <div class="set-row">
+                    <div>
+                        <p style="font-weight:600;font-size:0.9rem;">No Match Action</p>
+                        <p style="font-size:0.78rem;color:var(--muted);">Jab match na ho toh kya karein</p>
+                    </div>
+                    <select id="s-nomatch" class="v-select" style="width:auto;min-width:160px;">
+                        <option value="empty">Empty Chhod dein</option>
+                        <option value="na">"N/A" Bhar dein</option>
+                        <option value="custom">Custom Value</option>
+                    </select>
+                </div>
+
+                <div class="set-row hide" id="custom-val-row">
+                    <div>
+                        <p style="font-weight:600;font-size:0.9rem;">Custom Value</p>
+                        <p style="font-size:0.78rem;color:var(--muted);">No match me yeh value aayegi</p>
+                    </div>
+                    <input type="text" id="s-custom-val" class="v-input" style="width:auto;min-width:140px;" placeholder="-">
+                </div>
+
+                <div class="set-row">
+                    <div>
+                        <p style="font-weight:600;font-size:0.9rem;">Multiple Matches</p>
+                        <p style="font-size:0.78rem;color:var(--muted);">Ek se zyada match ho toh</p>
+                    </div>
+                    <select id="s-multi" class="v-select" style="width:auto;min-width:160px;">
+                        <option value="first">First Match Lo</option>
+                        <option value="last">Last Match Lo</option>
+                        <option value="concat">Sab Jod Dein</option>
+                    </select>
+                </div>
+
+                <div class="set-row hide" id="concat-sep-row">
+                    <div>
+                        <p style="font-weight:600;font-size:0.9rem;">Concat Separator</p>
+                        <p style="font-size:0.78rem;color:var(--muted);">Multiple values ke beech</p>
+                    </div>
+                    <input type="text" id="s-concat-sep" class="v-input" style="width:auto;min-width:100px;" value=", ">
+                </div>
+
+                <div class="set-row">
+                    <div>
+                        <p style="font-weight:600;font-size:0.9rem;">Output Sheet Name</p>
+                        <p style="font-size:0.78rem;color:var(--muted);">Download me sheet ka naam</p>
+                    </div>
+                    <input type="text" id="s-sheet-name" class="v-input" style="width:auto;min-width:160px;" value="Result">
+                </div>
+            </div>
+
+            <div class="flex justify-between mt-8">
+                <button class="btn btn-s" onclick="goStep(2)"><i class="fas fa-arrow-left"></i> Wapas</button>
+                <button class="btn btn-p" id="btn-process" onclick="processVLookup()">
+                    <i class="fas fa-bolt"></i> Process Karein
+                </button>
+            </div>
+        </section>
+
+        <!-- ==================== STEP 4: RESULTS ==================== -->
+        <section id="sec-4" class="step-sec hide">
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
+                <div class="stat-card s-total"><div class="stat-val" id="sv-total">0</div><div class="stat-lbl">Total Rows</div></div>
+                <div class="stat-card s-match"><div class="stat-val" id="sv-match">0</div><div class="stat-lbl">Matched</div></div>
+                <div class="stat-card s-unmatch"><div class="stat-val" id="sv-unmatch">0</div><div class="stat-lbl">Unmatched</div></div>
+                <div class="stat-card s-multi"><div class="stat-val" id="sv-multi">0</div><div class="stat-lbl">Multiple Match</div></div>
+            </div>
+
+            <div class="v-card">
+                <div class="flex flex-wrap items-center justify-between gap-3 mb-3">
+                    <h3 style="font-size:1rem;font-weight:600;">Preview <span id="prev-info" style="color:var(--muted);font-weight:400;font-size:0.82rem;"></span></h3>
+                    <div class="flex gap-2 flex-wrap">
+                        <button class="btn btn-dl" style="font-size:0.82rem;padding:0.5rem 1rem;" onclick="exportResult('xlsx')">
+                            <i class="fas fa-file-excel"></i> Download XLSX
+                        </button>
+                        <button class="btn btn-dl" style="font-size:0.82rem;padding:0.5rem 1rem;" onclick="exportResult('csv')">
+                            <i class="fas fa-file-csv"></i> Download CSV
+                        </button>
+                    </div>
+                </div>
+                <div class="flex gap-4 mb-3" style="font-size:0.78rem;">
+                    <span><span style="display:inline-block;width:12px;height:12px;border-radius:2px;background:var(--accent);vertical-align:middle;margin-right:0.3rem;"></span>Matched</span>
+                    <span><span style="display:inline-block;width:12px;height:12px;border-radius:2px;background:var(--err);vertical-align:middle;margin-right:0.3rem;"></span>Unmatched</span>
+                    <span><span style="display:inline-block;width:12px;height:12px;border-radius:2px;background:var(--warn);vertical-align:middle;margin-right:0.3rem;"></span>Multiple</span>
+                    <span><span style="display:inline-block;width:12px;height:12px;border-radius:2px;background:rgba(16,185,129,0.2);vertical-align:middle;margin-right:0.3rem;border:1px solid var(--accent);"></span>New Columns</span>
+                </div>
+                <div class="flex flex-wrap items-center gap-3 mb-3">
+                    <div class="relative" style="flex:1;min-width:160px;">
+                        <i class="fas fa-search" style="position:absolute;left:12px;top:50%;transform:translateY(-50%);color:var(--muted);font-size:0.8rem;pointer-events:none;"></i>
+                        <input type="text" id="result-search" class="v-input" style="padding-left:2rem;" placeholder="Search in results..." oninput="filterResults()">
+                    </div>
+                    <div class="flex gap-1 flex-wrap">
+                        <button class="btn btn-s filter-btn active" data-f="all" onclick="setResultFilter('all')" style="font-size:0.75rem;padding:0.35rem 0.75rem;">All</button>
+                        <button class="btn btn-s filter-btn" data-f="matched" onclick="setResultFilter('matched')" style="font-size:0.75rem;padding:0.35rem 0.75rem;">Matched</button>
+                        <button class="btn btn-s filter-btn" data-f="unmatched" onclick="setResultFilter('unmatched')" style="font-size:0.75rem;padding:0.35rem 0.75rem;">Unmatched</button>
+                        <button class="btn btn-s filter-btn" data-f="multi" onclick="setResultFilter('multi')" style="font-size:0.75rem;padding:0.35rem 0.75rem;">Multi</button>
+                    </div>
+                </div>
+                <div class="tbl-wrap" id="tbl-wrap"></div>
+            </div>
+
+            <div class="flex justify-start mt-8">
+                <button class="btn btn-s" onclick="resetAll()"><i class="fas fa-redo"></i> Naya Shuru Karein</button>
+            </div>
+        </section>
+    </div>
+
+<script>
+// ============================================
+// STATE
+// ============================================
+const S = {
+    step: 1,
+    f1: null,
+    f2: null,
+    result: null,
+};
+let _resultFilter = 'all';
+let _resultSearch = '';
+
+// ============================================
+// INIT
+// ============================================
+document.addEventListener('DOMContentLoaded', () => {
+    setupDrop(1);
+    setupDrop(2);
+    // Settings toggle listeners
+    document.getElementById('s-nomatch').addEventListener('change', e => {
+        document.getElementById('custom-val-row').classList.toggle('hide', e.target.value !== 'custom');
+    });
+    document.getElementById('s-multi').addEventListener('change', e => {
+        document.getElementById('concat-sep-row').classList.toggle('hide', e.target.value !== 'concat');
+    });
+});
+
+// ============================================
+// DROP ZONE SETUP
+// ============================================
+function setupDrop(n) {
+    const dz = document.getElementById(`dz-${n}`);
+    const fi = document.getElementById(`fi-${n}`);
+    dz.addEventListener('dragover', e => { e.preventDefault(); dz.classList.add('drag-over'); });
+    dz.addEventListener('dragleave', () => dz.classList.remove('drag-over'));
+    dz.addEventListener('drop', e => { e.preventDefault(); dz.classList.remove('drag-over'); if(e.dataTransfer.files[0]) loadFile(n, e.dataTransfer.files[0]); });
+    dz.addEventListener('click', () => fi.click());
+    dz.addEventListener('keydown', e => { if(e.key==='Enter'||e.key===' ') fi.click(); });
+    fi.addEventListener('change', e => { if(e.target.files[0]) loadFile(n, e.target.files[0]); });
+}
+
+// ============================================
+// FILE LOADING
+// ============================================
+function loadFile(n, file) {
+    const ext = file.name.split('.').pop().toLowerCase();
+    if(!['xlsx','xls','csv'].includes(ext)) {
+        toast('Sirf .xlsx, .xls, .csv files allowed hain', 'err');
+        return;
+    }
+    const reader = new FileReader();
+    reader.onload = e => {
+        try {
+            const wb = XLSX.read(e.target.result, { type:'array' });
+            const sheets = wb.SheetNames;
+            const fObj = { name:file.name, size:file.size, wb, sheets, curSheet:sheets[0], data:[], cols:[] };
+            S[`f${n}`] = fObj;
+
+            // Show file info
+            document.getElementById(`dz-${n}`).classList.add('hide');
+            document.getElementById(`fn-${n}`).textContent = file.name;
+            document.getElementById(`fs-${n}`).textContent = fmtSize(file.size);
+
+            // Sheet selector
+            if(sheets.length > 1) {
+                const wrap = document.getElementById(`ss-wrap-${n}`);
+                const sel = document.getElementById(`ss-${n}`);
+                wrap.classList.remove('hide');
+                sel.innerHTML = sheets.map(s => `<option value="${s}">${s}</option>`).join('');
+                sel.onchange = () => { fObj.curSheet = sel.value; loadSheetData(n); };
+            } else {
+                document.getElementById(`ss-wrap-${n}`).classList.add('hide');
+            }
+            loadSheetData(n);
+        } catch(err) {
+            toast('File parse nahi ho saki: ' + err.message, 'err');
+        }
+    };
+    reader.readAsArrayBuffer(file);
+}
+
+function loadSheetData(n) {
+    const f = S[`f${n}`];
+    const ws = f.wb.Sheets[f.curSheet];
+    const raw = XLSX.utils.sheet_to_json(ws, { defval:'' });
+    if(raw.length === 0) {
+        toast(`${f.name} me "${f.curSheet}" sheet khaali hai`, 'warn');
+        f.data = []; f.cols = [];
+    } else {
+        f.data = raw;
+        f.cols = Object.keys(raw[0]);
+    }
+    document.getElementById(`fr-${n}`).textContent = f.data.length.toLocaleString();
+    document.getElementById(`fc-${n}`).textContent = f.cols.length;
+    document.getElementById(`finfo-${n}`).classList.remove('hide');
+    checkStep1Ready();
+}
+
+function resetFile(n) {
+    S[`f${n}`] = null;
+    document.getElementById(`dz-${n}`).classList.remove('hide');
+    document.getElementById(`finfo-${n}`).classList.add('hide');
+    document.getElementById(`ss-wrap-${n}`).classList.add('hide');
+    document.getElementById(`fi-${n}`).value = '';
+    checkStep1Ready();
+}
+
+function checkStep1Ready() {
+    const ok = S.f1 && S.f1.data.length > 0 && S.f2 && S.f2.data.length > 0;
+    document.getElementById('btn-n1').disabled = !ok;
+}
+
+// ============================================
+// STEP NAVIGATION
+// ============================================
+function goStep(n) {
+    // Validation before moving forward
+    if(n === 2) {
+        if(!S.f1 || !S.f2) { toast('Pehle dono files upload karein', 'warn'); return; }
+        buildMappingUI();
+    }
+    if(n === 4 && !S.result) return;
+
+    S.step = n;
+    for(let i=1;i<=4;i++) {
+        document.getElementById(`sec-${i}`).classList.toggle('hide', i!==n);
+    }
+    // Update step indicator
+    for(let i=1;i<=4;i++) {
+        const node = document.getElementById(`sn-${i}`);
+        node.classList.remove('active','done');
+        if(i < n) node.classList.add('done');
+        else if(i === n) node.classList.add('active');
+        if(i<4) document.getElementById(`sl-${i}`).classList.toggle('done', i < n);
+    }
+    window.scrollTo({ top:0, behavior:'smooth' });
+}
+
+// ============================================
+// COLUMN MAPPING UI
+// ============================================
+function buildMappingUI() {
+    const mc1 = document.getElementById('mc1');
+    const mc2 = document.getElementById('mc2');
+    mc1.innerHTML = S.f1.cols.map(c => `<option value="${c}">${c}</option>`).join('');
+    mc2.innerHTML = S.f2.cols.map(c => `<option value="${c}">${c}</option>`).join('');
+
+    // Smart auto-detect with priority
+    const best = smartMatchCol(S.f1.cols, S.f2.cols);
+    const msg = document.getElementById('auto-detect-msg');
+    if(best) {
+        mc1.value = best;
+        mc2.value = best;
+        msg.classList.remove('hide');
+    } else {
+        msg.classList.add('hide');
+    }
+
+    buildDataColsUI();
+    renderPreview(1, 'prev-1');
+    renderPreview(2, 'prev-2');
+}
+
+const KEY_PRIORITY = [
+    'master no', 'master no.', 'master', 'masterid', 'master_id', 'master#',
+    'id', 'id no', 'id no.', 'id#', 'code', 'code no', 'code no.',
+    'email', 'e-mail', 'phone', 'mobile', 'contact',
+    'name', 'full name', 'employee', 'employee name',
+    'sr no', 'sr no.', 'sr#', 's no', 's no.',
+];
+
+function smartMatchCol(cols1, cols2) {
+    const lower1 = cols1.map(c => c.toLowerCase().trim());
+    const lower2 = cols2.map(c => c.toLowerCase().trim());
+    const common = cols1.filter((_, i) => cols2.some(c => c.toLowerCase().trim() === lower1[i]));
+    if(common.length > 0) {
+        common.sort((a, b) => {
+            const ia = KEY_PRIORITY.indexOf(a.toLowerCase().trim());
+            const ib = KEY_PRIORITY.indexOf(b.toLowerCase().trim());
+            return (ia === -1 ? 999 : ia) - (ib === -1 ? 999 : ib);
+        });
+        return common[0];
+    }
+    for(const p of KEY_PRIORITY) {
+        const i1 = lower1.indexOf(p);
+        const i2 = lower2.indexOf(p);
+        if(i1 !== -1 && i2 !== -1) return cols1[i1];
+    }
+    return null;
+}
+
+function renderPreview(n, containerId) {
+    const f = S[`f${n}`];
+    const container = document.getElementById(containerId);
+    if(!f || !f.data || f.data.length === 0) {
+        container.innerHTML = '<p style="color:var(--muted);font-size:0.78rem;padding:0.5rem;">No data</p>';
+        return;
+    }
+    const rows = f.data.slice(0, 5);
+    let h = '<table><thead><tr>';
+    f.cols.forEach(c => { h += `<th>${esc(c)}</th>`; });
+    h += '</tr></thead><tbody>';
+    rows.forEach(r => {
+        h += '<tr>';
+        f.cols.forEach(c => { h += `<td>${esc(String(r[c]??''))}</td>`; });
+        h += '</tr>';
+    });
+    h += '</tbody></table>';
+    container.innerHTML = h;
+}
+
+function buildDataColsUI() {
+    if (!S.f1) return;
+    const matchCol = document.getElementById('mc1').value;
+    const container = document.getElementById('dcols');
+    const cols = S.f1.cols.filter(c => c !== matchCol);
+    container.innerHTML = cols.map(c =>
+        `<label class="v-check"><input type="checkbox" class="dcol-cb" value="${c}" checked>${esc(c)}</label>`
+    ).join('');
+    // Sync with Sab Select checkbox state
+    const selAll = document.getElementById('sel-all');
+    if (selAll && !selAll.checked) {
+        document.querySelectorAll('.dcol-cb').forEach(cb => cb.checked = false);
+    }
+}
+
+document.getElementById('mc1').addEventListener('change', buildDataColsUI);
+
+function toggleAllCols(checked) {
+    document.querySelectorAll('.dcol-cb').forEach(cb => cb.checked = checked);
+}
+
+// ============================================
+// SETTINGS HELPERS
+// ============================================
+function getSettings() {
+    return {
+        matchType: document.getElementById('s-match-type').value,
+        caseSensitive: document.getElementById('s-case').checked,
+        trimWhitespace: document.getElementById('s-trim').checked,
+        noMatchAction: document.getElementById('s-nomatch').value,
+        customValue: document.getElementById('s-custom-val').value,
+        multiAction: document.getElementById('s-multi').value,
+        concatSep: document.getElementById('s-concat-sep').value,
+        sheetName: document.getElementById('s-sheet-name').value || 'Result',
+        conflictAction: document.getElementById('conflict-act').value,
+        colSuffix: document.getElementById('col-suffix').value || '_new',
+    };
+}
+
+// ============================================
+// PROCESSING
+// ============================================
+async function processVLookup() {
+    const matchCol1 = document.getElementById('mc1').value;
+    const matchCol2 = document.getElementById('mc2').value;
+    const selCols = Array.from(document.querySelectorAll('.dcol-cb:checked')).map(cb => cb.value);
+
+    if(!matchCol1 || !matchCol2) { toast('Match columns select karein', 'warn'); return; }
+    if(selCols.length === 0) { toast('Kam se kam ek data column select karein', 'warn'); return; }
+
+    const settings = getSettings();
+
+    showProcModal();
+    setProcStep(0);
+
+    try {
+        // Step 1: Build match index
+        setProcStep(1);
+        await delay(50);
+
+        const index = new Map();
+        S.f1.data.forEach(row => {
+            let key = normalize(String(row[matchCol1] ?? ''), settings);
+            if(!index.has(key)) index.set(key, []);
+            index.get(key).push(row);
+        });
+
+        setProcStep(2);
+        await delay(50);
+
+        // Determine output column names
+        const targetCols = [...S.f2.cols];
+        const newColNames = []; // track which are new
+        const colMapping = {}; // source col -> output col name
+
+        selCols.forEach(sc => {
+            if(targetCols.includes(sc)) {
+                if(settings.conflictAction === 'overwrite') {
+                    colMapping[sc] = sc;
+                } else if(settings.conflictAction === 'suffix') {
+                    const newName = sc + settings.colSuffix;
+                    colMapping[sc] = newName;
+                    if(!targetCols.includes(newName)) { targetCols.push(newName); newColNames.push(newName); }
+                } else { // skip
+                    return;
+                }
+            } else {
+                colMapping[sc] = sc;
+                targetCols.push(sc);
+                newColNames.push(sc);
+            }
+        });
+
+        const outputCols = [...S.f2.cols];
+        // Add new columns in order
+        newColNames.forEach(nc => { if(!outputCols.includes(nc)) outputCols.push(nc); });
+
+        // Process each target row
+        let matched = 0, unmatched = 0, multiMatch = 0;
+        const resultData = [];
+
+        S.f2.data.forEach(row2 => {
+            const tKey = normalize(String(row2[matchCol2] ?? ''), settings);
+            const matches = findMatches(tKey, index, settings);
+            const outRow = { ...row2 };
+
+            if(matches.length === 0) {
+                unmatched++;
+                const fillVal = settings.noMatchAction === 'na' ? 'N/A' : (settings.noMatchAction === 'custom' ? settings.customValue : '');
+                Object.values(colMapping).forEach(outName => { outRow[outName] = fillVal; });
+                outRow.___status = 'unmatched';
+            } else if(matches.length === 1) {
+                matched++;
+                copyMatchData(outRow, matches[0], colMapping);
+                outRow.___status = 'matched';
+            } else {
+                multiMatch++;
+                matched++;
+                let mRow;
+                if(settings.multiAction === 'first') mRow = matches[0];
+                else if(settings.multiAction === 'last') mRow = matches[matches.length-1];
+                else {
+                    // concat
+                    mRow = {};
+                    Object.entries(colMapping).forEach(([sc, on]) => {
+                        mRow[on] = matches.map(r => String(r[sc] ?? '')).join(settings.concatSep);
+                    });
+                }
+                copyMatchData(outRow, mRow, colMapping);
+                outRow.___status = 'multi';
+            }
+            resultData.push(outRow);
+        });
+
+        setProcStep(3);
+        await delay(50);
+
+        S.result = {
+            data: resultData,
+            cols: outputCols,
+            newCols: newColNames,
+            colMapping,
+            stats: { total:resultData.length, matched, unmatched, multiMatch },
+            settings,
+            matchCol1, matchCol2
+        };
+
+        setProcStep(4);
+        await delay(100);
+
+        hideProcModal();
+        goStep(4);
+        renderResults();
+        toast(`Processing complete! ${matched} matched, ${unmatched} unmatched`, 'ok');
+
+    } catch(err) {
+        hideProcModal();
+        toast('Error: ' + err.message, 'err');
+        console.error(err);
+    }
+}
+
+function normalize(val, settings) {
+    let v = val;
+    if(settings.trimWhitespace) v = v.trim();
+    if(!settings.caseSensitive) v = v.toLowerCase();
+    return v;
+}
+
+function findMatches(tKey, index, settings) {
+    if(settings.matchType === 'exact') {
+        return index.get(tKey) || [];
+    }
+    // Partial matches — scan all keys
+    const results = [];
+    index.forEach((rows, key) => {
+        let ok = false;
+        if(settings.matchType === 'contains') ok = tKey.includes(key) || key.includes(tKey);
+        else if(settings.matchType === 'starts') ok = tKey.startsWith(key);
+        else if(settings.matchType === 'ends') ok = tKey.endsWith(key);
+        if(ok) results.push(...rows);
+    });
+    return results;
+}
+
+function copyMatchData(outRow, matchRow, colMapping) {
+    Object.entries(colMapping).forEach(([sc, on]) => {
+        outRow[on] = matchRow[sc] !== undefined ? matchRow[sc] : '';
+    });
+}
+
+// ============================================
+// RESULTS RENDERING
+// ============================================
+function renderResults() {
+    const r = S.result;
+    if(!r) return;
+
+    animateNum('sv-total', r.stats.total);
+    animateNum('sv-match', r.stats.matched);
+    animateNum('sv-unmatch', r.stats.unmatched);
+    animateNum('sv-multi', r.stats.multiMatch);
+
+    // Apply filters
+    let filtered = r.data;
+    if(_resultFilter !== 'all') {
+        filtered = filtered.filter(row => row.___status === _resultFilter);
+    }
+    if(_resultSearch) {
+        const q = _resultSearch.toLowerCase();
+        filtered = filtered.filter(row => r.cols.some(c => String(row[c]??'').toLowerCase().includes(q)));
+    }
+
+    const maxRows = 200;
+    const show = filtered.slice(0, maxRows);
+    const totalDisp = filtered.length;
+    document.getElementById('prev-info').textContent =
+        totalDisp < r.data.length
+            ? `(${totalDisp.toLocaleString()} rows filtered)`
+            : r.data.length > maxRows
+                ? `(Pehle ${maxRows} of ${r.data.length} rows)`
+                : `(${r.data.length} rows)`;
+
+    const wrap = document.getElementById('tbl-wrap');
+    if(show.length === 0) {
+        wrap.innerHTML = '<p style="color:var(--muted);font-size:0.85rem;padding:2rem;text-align:center;">No matching rows found</p>';
+        return;
+    }
+
+    let html = '<table><thead><tr>';
+    html += '<th style="width:40px;text-align:center;">#</th>';
+    html += '<th style="width:80px;">Status</th>';
+    r.cols.forEach(c => {
+        const isNew = r.newCols.includes(c);
+        html += `<th class="${isNew?'col-new':''}">${esc(c)}${isNew?' <span style="font-size:0.65rem;color:var(--accent);">(NEW)</span>':''}</th>`;
+    });
+    html += '</tr></thead><tbody>';
+
+    show.forEach((row, i) => {
+        const cls = row.___status === 'matched' ? 'row-matched' : (row.___status === 'multi' ? 'row-multi' : 'row-unmatched');
+        html += `<tr class="${cls}">`;
+        html += `<td style="text-align:center;color:var(--muted);font-size:0.75rem;">${i+1}</td>`;
+        const stLabel = row.___status === 'matched' ? '<span style="color:var(--accent);">Match</span>' :
+                        row.___status === 'multi' ? '<span style="color:var(--warn);">Multi</span>' :
+                        '<span style="color:var(--err);">No Match</span>';
+        html += `<td style="font-size:0.75rem;">${stLabel}</td>`;
+        r.cols.forEach(c => {
+            const val = row[c];
+            const isNew = r.newCols.includes(c);
+            html += `<td class="${isNew?'col-new':''}">${esc(String(val??''))}</td>`;
+        });
+        html += '</tr>';
+    });
+    html += '</tbody></table>';
+    wrap.innerHTML = html;
+}
+
+function filterResults() {
+    _resultSearch = document.getElementById('result-search').value;
+    renderResults();
+}
+
+function setResultFilter(f) {
+    _resultFilter = f;
+    document.querySelectorAll('.filter-btn').forEach(b => {
+        b.classList.toggle('active', b.dataset.f === f);
+    });
+    renderResults();
+}
+
+function animateNum(id, target) {
+    const el = document.getElementById(id);
+    let cur = 0;
+    const step = Math.max(1, Math.ceil(target / 30));
+    const iv = setInterval(() => {
+        cur += step;
+        if(cur >= target) { cur = target; clearInterval(iv); }
+        el.textContent = cur.toLocaleString();
+    }, 25);
+}
+
+// ============================================
+// EXPORT
+// ============================================
+function exportResult(fmt) {
+    if(!S.result) return;
+    const r = S.result;
+    // Clean ___status from data
+    const cleanData = r.data.map(row => {
+        const o = {};
+        r.cols.forEach(c => { o[c] = row[c]; });
+        return o;
+    });
+
+    if(fmt === 'xlsx') {
+        const ws = XLSX.utils.json_to_sheet(cleanData, { header:r.cols });
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, r.settings.sheetName);
+        XLSX.writeFile(wb, 'VLOOKUP_Result.xlsx');
+        toast('XLSX download ho raha hai...', 'ok');
+    } else {
+        const ws = XLSX.utils.json_to_sheet(cleanData, { header:r.cols });
+        const csv = XLSX.utils.sheet_to_csv(ws);
+        const blob = new Blob(['\ufeff'+csv], { type:'text/csv;charset=utf-8;' });
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = 'VLOOKUP_Result.csv';
+        a.click();
+        URL.revokeObjectURL(a.href);
+        toast('CSV download ho raha hai...', 'ok');
+    }
+}
+
+// ============================================
+// RESET
+// ============================================
+function resetAll() {
+    S.result = null;
+    _resultFilter = 'all';
+    _resultSearch = '';
+    resetFile(1);
+    resetFile(2);
+    // Reset settings to defaults
+    document.getElementById('s-match-type').value = 'exact';
+    document.getElementById('s-case').checked = false;
+    document.getElementById('s-trim').checked = true;
+    document.getElementById('s-nomatch').value = 'empty';
+    document.getElementById('s-multi').value = 'first';
+    document.getElementById('s-concat-sep').value = ', ';
+    document.getElementById('s-sheet-name').value = 'Result';
+    document.getElementById('conflict-act').value = 'suffix';
+    document.getElementById('col-suffix').value = '_new';
+    document.getElementById('custom-val-row').classList.add('hide');
+    document.getElementById('concat-sep-row').classList.add('hide');
+    goStep(1);
+    toast('Sab reset ho gaya — naya shuru karein', 'info');
+}
+
+// ============================================
+// PROCESSING MODAL
+// ============================================
+function showProcModal() {
+    const div = document.createElement('div');
+    div.id = 'proc-modal';
+    div.className = 'proc-overlay';
+    div.innerHTML = `
+        <div class="proc-card">
+            <div class="proc-spinner"></div>
+            <h3 style="font-size:1.1rem;font-weight:700;margin-bottom:1rem;">VLOOKUP Processing <span id="proc-pct" style="color:var(--accent);font-size:0.85rem;">0%</span></h3>
+            <div class="proc-step s-wait" id="ps-1"><span class="ico"><i class="fas fa-circle"></i></span> Match index bana rahe hain</div>
+            <div class="proc-step s-wait" id="ps-2"><span class="ico"><i class="fas fa-circle"></i></span> Target rows process ho rahe hain</div>
+            <div class="proc-step s-wait" id="ps-3"><span class="ico"><i class="fas fa-circle"></i></span> Data columns map kar rahe hain</div>
+            <div class="proc-step s-wait" id="ps-4"><span class="ico"><i class="fas fa-circle"></i></span> Result taiyar kar rahe hain</div>
+            <div class="proc-bar"><div class="proc-bar-fill" id="proc-bar" style="width:0%"></div></div>
+        </div>`;
+    document.body.appendChild(div);
+}
+
+function setProcStep(n) {
+    for(let i=1;i<=4;i++) {
+        const el = document.getElementById(`ps-${i}`);
+        el.className = 'proc-step ' + (i<n?'s-done':i===n?'s-active':'s-wait');
+        el.querySelector('.ico i').className = i<n?'fas fa-check-circle':i===n?'fas fa-spinner fa-spin':'fas fa-circle';
+    }
+    const pct = Math.min(100, n*25);
+    document.getElementById('proc-bar').style.width = pct+'%';
+    const pctEl = document.getElementById('proc-pct');
+    if(pctEl) pctEl.textContent = pct+'%';
+}
+
+function hideProcModal() {
+    const m = document.getElementById('proc-modal');
+    if(m) m.remove();
+}
+
+// ============================================
+// TOAST
+// ============================================
+function toast(msg, type='info') {
+    const box = document.getElementById('toast-box');
+    const t = document.createElement('div');
+    const cls = {ok:'t-ok',err:'t-err',warn:'t-warn',info:'t-info'}[type]||'t-info';
+    const ico = {ok:'fa-check-circle',err:'fa-exclamation-circle',warn:'fa-exclamation-triangle',info:'fa-info-circle'}[type]||'fa-info-circle';
+    t.className = `toast ${cls}`;
+    t.innerHTML = `<i class="fas ${ico}"></i><span>${esc(msg)}</span>`;
+    box.appendChild(t);
+    setTimeout(() => { t.classList.add('out'); setTimeout(()=>t.remove(),300); }, 3500);
+}
+
+// ============================================
+// UTILS
+// ============================================
+function esc(s) {
+    const d = document.createElement('div');
+    d.textContent = s;
+    return d.innerHTML;
+}
+function fmtSize(b) {
+    if(b<1024) return b+' B';
+    if(b<1048576) return (b/1024).toFixed(1)+' KB';
+    return (b/1048576).toFixed(1)+' MB';
+}
+function delay(ms) { return new Promise(r=>setTimeout(r,ms)); }
+</script>
+</body>
+</html>
